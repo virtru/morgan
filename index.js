@@ -10,6 +10,7 @@
  */
 
 var bytes = require('bytes');
+var format = require('util').format;
 
 /*!
  * Default log buffer duration.
@@ -113,10 +114,16 @@ exports = module.exports = function logger(options) {
  */
 
 function compile(fmt) {
+  // Escape quotes
   fmt = fmt.replace(/"/g, '\\"');
-  var js = '  return "' + fmt.replace(/:([-\w]{2,})(?:\[([^\]]+)\])?/g, function(_, name, arg){
-    return '"\n    + (tokens["' + name + '"](req, res, "' + arg + '") || "-") + "';
-  }) + '";'
+
+  var regexTokenAndField = /:([-\w]{2,})(?:\[([^\]]+)\])?/g;
+  var builtString = fmt.replace(regexTokenAndField, function(ignoredMatch, tokenName, fieldName) {
+    return format('"\n + (function(){return tokens["%s"] ? tokens["%s"](req, res, "%s") : "-"})() + "',
+      tokenName, tokenName, fieldName);
+  });
+
+  var js = 'return "' + builtString + '";'
   return new Function('tokens, req, res', js);
 };
 
